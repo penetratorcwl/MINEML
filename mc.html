@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- POPRAWKA v1.20: Zmiana tytułu -->
+    <title>MINEML (v1.20 - Creative UI)</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background-color: #111;
+            color: white;
+            /* POPRAWKA v1.20: Domyślny kursor, gdy UI jest otwarte */
+            cursor: default; 
+            user-select: none;
+        }
+        canvas {
+            display: block;
+        }
+        /* Nakładka blokująca - do kliknięcia "Start" */
+        #blocker {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        #instructions {
+            width: 50%;
+            background: rgba(0, 0, 0, 0.5); 
+            padding: 20px;
+            border-radius: 8px;
+            box-sizing: border-box; 
+        }
+        /* Celownik */
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin-left: -11px; /* Połowa szerokości + border */
+            margin-top: -11px; /* Połowa wysokości + border */
+            font-size: 20px;
+            font-weight: bold;
+            color: rgba(255, 255, 255, 0.8);
+            pointer-events: none; /* Pozwala klikać "przez" */
+            display: none; /* Domyślnie ukryty */
+        }
+
+        /* --- Style dla Hotbara --- */
+        #hotbar {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 4px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 4px;
+            border-radius: 4px;
+            pointer-events: none; /* Domyślnie brak interakcji */
+        }
+        .slot {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid #555;
+            box-sizing: border-box; 
+            
+            /* POPRAWKA v1.20: Używamy tekstur, nie emoji */
+            background-size: 32px; /* Pixelated look */
+            background-repeat: no-repeat;
+            background-position: center;
+            image-rendering: pixelated; /* Ważne dla piksel-artu */
+        }
+        .slot.selected {
+            border: 2px solid #FFF;
+            background-color: rgba(255, 255, 255, 0.3); /* Użyj tła zamiast skali */
+        }
+        
+        /* --- NOWOŚĆ v1.20: Ekran Ekwipunku --- */
+        #inventory-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none; /* Domyślnie ukryty */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+        #creative-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 54px); /* 6 bloków */
+            gap: 4px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 8px;
+        }
+        /* Gdy ekwipunek jest otwarty, hotbar staje się interaktywny */
+        #inventory-screen #hotbar {
+            position: relative; /* Wróć do normalnego pozycjonowania */
+            bottom: auto;
+            left: auto;
+            transform: none;
+            pointer-events: auto; /* Pozwól na klikanie */
+        }
+        #inventory-screen .slot {
+            cursor: pointer; /* Pokaż dłoń nad slotami */
+            pointer-events: auto;
+        }
+        #inventory-screen .slot:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* --- NOWOŚĆ v1.20: "Przenoszony" item przy kursorze --- */
+        #held-item {
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            background-size: 32px;
+            background-repeat: no-repeat;
+            image-rendering: pixelated;
+            pointer-events: none; /* Ignoruj kliknięcia */
+            display: none; /* Ukryty domyślnie */
+            z-index: 9999;
+        }
+        
+        /* --- Style dla UI w grze --- */
+        #version {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
+            pointer-events: none;
+            display: none; /* Ukryte na starcie */
+            user-select: none;
+        }
+        #controls-hint {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+            background: rgba(0, 0, 0, 0.3);
+            padding: 5px 10px;
+            border-radius: 4px;
+            pointer-events: none;
+            display: none; /* Ukryte na starcie */
+            user-select: none;
+        }
+        #controls-display {
+            position: absolute;
+            top: 40px; /* Pod hintem */
+            left: 10px;
+            font-size: 14px;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.9);
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 4px;
+            pointer-events: none;
+            display: none; /* Domyślnie ukryte, przełączane klawiszorem H */
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Nakładka, którą trzeba kliknąć, by włączyć Pointer Lock -->
+    <div id="blocker">
+        <div id="instructions">
+            <!-- POPRAWKA v1.20: Zmiana tytułu -->
+            <h1>MINEML(v1.20)</h1>
+            <p>Kliknij, aby rozpocząć</p>
+            <p id="loading-message" style="font-size: 16px; color: #ccc;">Ładowanie tekstur...</p>
+        </div>
+    </div>
+
+    <!-- Celownik -->
+    <div id="crosshair">+</div>
+
+    <!-- Hotbar (teraz pusty, wypełniany przez JS) -->
+    <div id="hotbar">
+        <div class="slot"></div>
+        <div class="slot"></div>
+        <div class="slot"></div>
+        <div class="slot"></div>
+        <div class="slot"></div>
+        <div class="slot"></div>
+        <div class="slot"></div>
+        <div class="slot"></div>
+        <div class="slot"></div>
+    </div>
+    
+    <!-- Elementy UI w grze (v1.10) -->
+    <div id="version">MINEML (v1.20)</div> <!-- POPRAWKA v1.20: Aktualizacja wersji -->
+    <div id="controls-hint">Naciśnij [H] aby przełączyć pomoc</div>
+    <div id="controls-display" style="display: none;"> <!-- Domyślnie ukryte -->
+        <b>Chodzenie:</b> W, A, S, D<br>
+        <b>Skok:</b> SPACJA<br>
+        <b>Niszcz:</b> LPM<br>
+        <b>Buduj:</b> PPM<br>
+        <b>Hotbar:</b> Kółko myszy<br>
+        <!-- POPRAWKA v1.20: Nowe sterowanie -->
+        <b>Ekwipunek:</b> E<br>
+        <b>Wyjście:</b> ESC
+    </div>
+
+    <!-- NOWOŚĆ v1.20: Ekran Ekwipunku -->
+    <div id="inventory-screen">
+        <div id="creative-grid">
+            <!-- Wypełniane dynamicznie przez JavaScript -->
+        </div>
+        <!-- Hotbar zostanie tu przeniesiony przez JS, gdy ekwipunek jest otwarty -->
+    </div>
+    
+    <!-- NOWOŚĆ v1.20: "Przenoszony" item -->
+    <div id="held-item"></div>
+
+
+    <!-- Import Map -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <!-- Główny skrypt gry -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+        // --- Zmienne globalne ---
+        let camera, scene, renderer, controls;
+        let raycaster;
+        
+        const objects = []; // Wszystkie bloki (i podłoże)
+        const BLOCK_SIZE = 1;
+
+        const blockGeometry = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+        
+        const loadingManager = new THREE.LoadingManager();
+        const textureLoader = new THREE.TextureLoader(loadingManager);
+        
+        const texturePath = 'resources/textures/blocks/'; 
+        
+        function loadTexture(fileName) {
+            const texture = textureLoader.load(texturePath + fileName);
+            texture.magFilter = THREE.NearestFilter; // Zachowuje pikselowy wygląd
+            return texture;
+        }
+
+        // --- Definicje tekstur ---
+        const dirtTexture = loadTexture('dirt.png');
+        const stoneTexture = loadTexture('stone.png');
+        const cobblestoneTexture = loadTexture('cobblestone.png');
+        const leavesTexture = loadTexture('leaves_oak.png');
+        const planksTexture = loadTexture('planks_oak.png');
+        const logSideTexture = loadTexture('log_oak.png');
+        const logTopTexture = loadTexture('log_oak_top.png');
+        const grassTopTexture = loadTexture('grass_block_top.png');
+        
+        // --- Definicje materiałów ---
+        const dirtMaterial = new THREE.MeshLambertMaterial({ map: dirtTexture });
+        const stoneMaterial = new THREE.MeshLambertMaterial({ map: stoneTexture });
+        const cobblestoneMaterial = new THREE.MeshLambertMaterial({ map: cobblestoneTexture });
+        const planksMaterial = new THREE.MeshLambertMaterial({ map: planksTexture });
+        
+        const leavesMaterial = new THREE.MeshLambertMaterial({ 
+            map: leavesTexture, 
+            transparent: true, 
+            alphaTest: 0.1, 
+            side: THREE.DoubleSide
+        });
+
+        const logSideMaterial = new THREE.MeshLambertMaterial({ map: logSideTexture });
+        const logTopMaterial = new THREE.MeshLambertMaterial({ map: logTopTexture });
+        const logMaterialArray = [
+            logSideMaterial, logSideMaterial, logTopMaterial,
+            logTopMaterial, logSideMaterial, logSideMaterial
+        ];
+        
+        // --- NOWOŚĆ v1.20: Scentralizowana baza danych bloków ---
+        const blockInfo = {
+            'dirt': { material: dirtMaterial, texture: 'resources/textures/blocks/dirt.png' },
+            'stone': { material: stoneMaterial, texture: 'resources/textures/blocks/stone.png' },
+            'cobblestone': { material: cobblestoneMaterial, texture: 'resources/textures/blocks/cobblestone.png' },
+            'planks': { material: planksMaterial, texture: 'resources/textures/blocks/planks_oak.png' },
+            'log': { material: logMaterialArray, texture: 'resources/textures/blocks/log_oak.png' },
+            'leaves': { material: leavesMaterial, texture: 'resources/textures/blocks/leaves_oak.png' }
+        };
+        const creativeItems = ['dirt', 'stone', 'cobblestone', 'planks', 'log', 'leaves'];
+        
+        // Tablica slotMaterials jest teraz pusta i wypełniana przez gracza
+        let slotMaterials = new Array(9).fill(null);
+        
+        // NOWOŚĆ v1.20: Tablica śledząca co jest w hotbarze
+        let hotbarItems = new Array(9).fill(null); // np. [null, 'dirt', 'stone', null, ...]
+        let heldItem = null; // 'dirt', 'stone', itp.
+        let isInventoryOpen = false;
+
+
+        // --- Zmienne fizyki i ruchu ---
+        const PLAYER_HEIGHT = 1.8 * BLOCK_SIZE;
+        const PLAYER_WIDTH = 0.8; 
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        let jumpRequested = false; 
+        let isGrounded = false; 
+        let velocity = new THREE.Vector3(); 
+        const moveSpeed = 4.0;
+        const gravity = 20.0; 
+        const jumpHeight = 1.2; 
+        
+        // --- Zmienne interakcji ---
+        let isBreakingHeld = false, isPlacingHeld = false;
+        const breakCooldown = 0.3, placeCooldown = 0.25; 
+        let nextBreakTime = 0, nextPlaceTime = 0; 
+        let breakHoldTime = 0, placeHoldTime = 0;   
+        const breakMaxAccelTime = 1.5, placeMaxAccelTime = 1.0; 
+        const breakMinCooldown = 0.1, placeMinCooldown = 0.1; 
+        let prevTime = performance.now(); 
+
+        // --- Zmienne Hotbara ---
+        let hotbarContainer; // Zmieniono nazwę z hotbarSlots na kontener
+        let hotbarSlots = []; // Tablica elementów DOM
+        let currentSlot = 0; // Slot 0-8
+        
+        // --- Elementy UI ---
+        const blocker = document.getElementById('blocker');
+        const crosshair = document.getElementById('crosshair');
+        let versionDisplay, controlsHint, controlsDisplay;
+        let controlsVisible = false; 
+        
+        // NOWOŚĆ v1.20: Nowe elementy UI
+        let inventoryScreen, creativeGrid, heldItemVisual;
+
+
+        // Uruchomienie gry po załadowaniu tekstur
+        loadingManager.onLoad = () => {
+            console.log("Wszystkie tekstury załadowane, uruchamiam grę.");
+            const loadingMessage = document.getElementById('loading-message');
+            if (loadingMessage) {
+                loadingMessage.textContent = "Kliknij, aby rozpocząć";
+            }
+            init();
+            animate();
+        };
+        
+        loadingManager.onError = (url) => {
+            console.error('Wystąpił błąd podczas ładowania:', url);
+            const loadingMessage = document.getElementById('loading-message');
+            if (loadingMessage) {
+                loadingMessage.textContent = "Błąd ładowania tekstur! Sprawdź ścieżki i nazwy plików.";
+                loadingMessage.style.color = "red";
+            }
+        };
+
+
+        function init() {
+            // 1. Scena
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+
+            // 2. Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.body.appendChild(renderer.domElement);
+
+            // 3. Kamera (nasz gracz)
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.y = PLAYER_HEIGHT; 
+
+            // 4. Kontrolery (Pointer Lock)
+            controls = new PointerLockControls(camera, document.body);
+            scene.add(controls.getObject()); 
+
+            controls.addEventListener('lock', () => {
+                // Gdy wchodzimy do gry
+                blocker.style.display = 'none';
+                crosshair.style.display = 'block';
+                versionDisplay.style.display = 'block';
+                controlsHint.style.display = 'block';
+                
+                // POPRAWKA v1.20: Upewnij się, że UI jest schowane
+                inventoryScreen.style.display = 'none';
+                document.body.style.cursor = 'none';
+            });
+            
+            controls.addEventListener('unlock', () => {
+                // Gdy wychodzimy z gry (ESC lub E)
+                document.body.style.cursor = 'default';
+                
+                if (isInventoryOpen) {
+                    // Jeśli wychodzimy przez 'E', pokaż ekwipunek
+                    blocker.style.display = 'none';
+                    inventoryScreen.style.display = 'flex';
+                } else {
+                    // Jeśli wychodzimy przez 'ESC', pokaż menu startowe
+                    blocker.style.display = 'flex';
+                    inventoryScreen.style.display = 'none';
+                }
+                
+                // Zawsze ukrywaj UI gry, gdy nie jest zablokowane
+                crosshair.style.display = 'none';
+                versionDisplay.style.display = 'none';
+                controlsHint.style.display = 'none';
+                controlsDisplay.style.display = 'none'; 
+                controlsVisible = false; 
+            });
+            
+            blocker.addEventListener('click', () => {
+                controls.lock();
+            });
+
+            // 5. Światła
+            const ambientLight = new THREE.AmbientLight(0x606060);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(1, 0.75, 0.5).normalize();
+            scene.add(directionalLight);
+
+            // 6. Podłoże
+            const planeGeometry = new THREE.PlaneGeometry(50, 50);
+            planeGeometry.rotateX(-Math.PI / 2);
+            grassTopTexture.wrapS = THREE.RepeatWrapping;
+            grassTopTexture.wrapT = THREE.RepeatWrapping;
+            grassTopTexture.repeat.set(50, 50);
+            const planeMaterial = new THREE.MeshLambertMaterial({ map: grassTopTexture });
+            const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+            plane.name = "GROUND";
+            scene.add(plane);
+            objects.push(plane);
+            
+            // 7. Raycaster
+            raycaster = new THREE.Raycaster();
+            raycaster.far = 10; 
+
+            // 8. Nasłuchiwanie zdarzeń
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+            document.addEventListener('pointerdown', onPointerDown); 
+            document.addEventListener('pointerup', onPointerUp);
+            window.addEventListener('resize', onWindowResize);
+            document.addEventListener('contextmenu', (event) => event.preventDefault());
+            window.addEventListener('wheel', onWheelScroll);
+            
+            // --- NOWOŚĆ v1.20: Inicjalizacja Ekwipunku ---
+            hotbarContainer = document.getElementById('hotbar');
+            hotbarSlots = Array.from(hotbarContainer.querySelectorAll('.slot'));
+            inventoryScreen = document.getElementById('inventory-screen');
+            creativeGrid = document.getElementById('creative-grid');
+            heldItemVisual = document.getElementById('held-item');
+
+            // Przenieś hotbar do ekranu ekwipunku (będzie widoczny tylko tam)
+            inventoryScreen.appendChild(hotbarContainer);
+            
+            // Wypełnij siatkę kreatywną
+            for (const itemName of creativeItems) {
+                const info = blockInfo[itemName];
+                const slot = document.createElement('div');
+                slot.className = 'slot creative-slot';
+                // Użyj pierwszej tekstury z boku dla pnia
+                const textureUrl = (itemName === 'log') ? 'resources/textures/blocks/log_oak.png' : info.texture;
+                slot.style.backgroundImage = `url(${textureUrl})`;
+                
+                slot.addEventListener('click', () => onCreativeItemClick(itemName));
+                creativeGrid.appendChild(slot);
+            }
+            
+            // Dodaj listenery do slotów hotbara
+            hotbarSlots.forEach((slot, index) => {
+                slot.addEventListener('click', () => onHotbarSlotClick(index));
+            });
+            
+            // Listener do przesuwania "trzymanego" itemu
+            window.addEventListener('mousemove', (event) => {
+                if (isInventoryOpen && heldItem) {
+                    heldItemVisual.style.transform = `translate(${event.clientX}px, ${event.clientY}px)`;
+                }
+            });
+            // --- Koniec inicjalizacji Ekwipunku ---
+            
+
+            // 9. Inicjalizacja reszty UI
+            versionDisplay = document.getElementById('version');
+            controlsHint = document.getElementById('controls-hint');
+            controlsDisplay = document.getElementById('controls-display');
+            
+            updateHotbarVisuals(); // Zaktualizuj na start (pokaż 'selected' na slocie 0)
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // --- NOWOŚĆ v1.20: Funkcje Ekwipunku ---
+        
+        function openInventory() {
+            isInventoryOpen = true;
+            controls.unlock(); // To wywoła listener 'unlock'
+        }
+        
+        function closeInventory() {
+            isInventoryOpen = false;
+            heldItem = null; // Zawsze upuść item przy zamykaniu
+            updateHeldItemVisual();
+            controls.lock(); // To wywoła listener 'lock'
+        }
+        
+        function onCreativeItemClick(itemName) {
+            if (heldItem) {
+                // Jeśli już coś trzymasz, odłóż to (anuluj)
+                heldItem = null;
+            } else {
+                // Podnieś nowy item
+                heldItem = itemName;
+            }
+            updateHeldItemVisual();
+        }
+        
+        function onHotbarSlotClick(index) {
+            const itemInSlot = hotbarItems[index];
+            
+            if (heldItem) {
+                // Kładziemy item DO slotu
+                hotbarItems[index] = heldItem;
+                slotMaterials[index] = blockInfo[heldItem].material;
+                
+                heldItem = itemInSlot; // Podnieś to, co było w slocie (może być null)
+            } else if (itemInSlot) {
+                // Podnosimy item ZE slotu
+                hotbarItems[index] = null;
+                slotMaterials[index] = null;
+                
+                heldItem = itemInSlot;
+            }
+            
+            updateHotbarVisuals();
+            updateHeldItemVisual();
+        }
+
+        function updateHeldItemVisual() {
+            if (heldItem) {
+                const info = blockInfo[heldItem];
+                const textureUrl = (heldItem === 'log') ? 'resources/textures/blocks/log_oak.png' : info.texture;
+                heldItemVisual.style.backgroundImage = `url(${textureUrl})`;
+                heldItemVisual.style.display = 'block';
+            } else {
+                heldItemVisual.style.display = 'none';
+            }
+        }
+        
+        // --- Koniec funkcji Ekwipunku ---
+
+
+        function onKeyDown(event) {
+            
+            // (v1.10) Przełączanie pomocy
+            if (event.code === 'KeyH') {
+                if (controls.isLocked) { 
+                    controlsVisible = !controlsVisible;
+                    controlsDisplay.style.display = controlsVisible ? 'block' : 'none';
+                }
+                event.preventDefault(); 
+                return; 
+            }
+            
+            // --- NOWOŚĆ v1.20: Otwieranie/Zamykanie Ekwipunku ---
+            if (event.code === 'KeyE') {
+                event.preventDefault();
+                if (isInventoryOpen) {
+                    closeInventory();
+                } else if (controls.isLocked) {
+                    openInventory();
+                }
+                return;
+            }
+            
+            // Nie ruszaj się, gdy ekwipunek jest otwarty
+            if (!controls.isLocked) return;
+
+            switch (event.code) {
+                case 'ArrowUp':
+                case 'KeyW':
+                    moveForward = true;
+                    break;
+                case 'ArrowLeft':
+                case 'KeyA':
+                    moveLeft = true;
+                    break;
+                case 'ArrowDown':
+                case 'KeyS':
+                    moveBackward = true;
+                    break;
+                case 'ArrowRight':
+                case 'KeyD':
+                    moveRight = true;
+                    break;
+                case 'Space':
+                    jumpRequested = true;
+                    break;
+            }
+        }
+
+        function onKeyUp(event) {
+            switch (event.code) {
+                case 'ArrowUp':
+                case 'KeyW':
+                    moveForward = false;
+                    break;
+                case 'ArrowLeft':
+                case 'KeyA':
+                    moveLeft = false;
+                    break;
+                case 'ArrowDown':
+                case 'KeyS':
+                    moveBackward = false;
+                    break;
+                case 'ArrowRight':
+                case 'KeyD':
+                    moveRight = false;
+                    break;
+                case 'Space':
+                    jumpRequested = false;
+                    break;
+            }
+        }
+
+        function onPointerUp(event) {
+            if (event.button === 0) { 
+                isBreakingHeld = false;
+            }
+            else if (event.button === 2) { 
+                isPlacingHeld = false;
+            }
+        }
+        
+        function handleBreaking() {
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            const intersects = raycaster.intersectObjects(objects, false);
+
+            if (intersects.length > 0) {
+                const intersect = intersects[0];
+                if (intersect.object.name !== "GROUND") {
+                    scene.remove(intersect.object);
+                    objects.splice(objects.indexOf(intersect.object), 1);
+                }
+            }
+        }
+
+        function handlePlacing() {
+            // Pobierz aktualnie wybrany materiał z logiki hotbara
+            const selectedMaterial = slotMaterials[currentSlot];
+            if (!selectedMaterial) {
+                return; // Wybrany pusty slot lub item (gdy dodamy)
+            }
+            
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            const intersects = raycaster.intersectObjects(objects, false);
+
+            if (intersects.length > 0) {
+                const intersect = intersects[0];
+                
+                const newBlock = new THREE.Mesh(blockGeometry, selectedMaterial);
+                newBlock.name = "VOXEL_BLOCK"; 
+                newBlock.position.copy(intersect.point).add(intersect.face.normal.clone().multiplyScalar(0.5));
+                newBlock.position.divideScalar(BLOCK_SIZE).floor().multiplyScalar(BLOCK_SIZE).addScalar(BLOCK_SIZE / 2);
+                
+                if (newBlock.position.y < BLOCK_SIZE / 2) {
+                    newBlock.position.y = BLOCK_SIZE / 2;
+                }
+
+                updatePlayerBox(controls.getObject().position);
+                const newBlockBox = new THREE.Box3();
+                newBlockBox.setFromCenterAndSize(
+                    newBlock.position, 
+                    new THREE.Vector3(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
+                );
+        
+                if (playerBox.intersectsBox(newBlockBox)) {
+                    return; 
+                }
+
+                scene.add(newBlock);
+                objects.push(newBlock);
+            }
+        }
+        
+        function onPointerDown(event) {
+            // Blokuj budowanie/niszczenie gdy UI jest otwarte
+            if (!controls.isLocked) {
+                // Ale pozwól na klikanie w UI
+                if (event.target.id === 'blocker') {
+                    controls.lock();
+                }
+                return;
+            }
+
+            if (event.button === 0) { 
+                isBreakingHeld = true;
+            }
+            else if (event.button === 2) { 
+                isPlacingHeld = true;
+            }
+        }
+
+        function onWheelScroll(event) {
+            // Blokuj scrollowanie hotbara gdy UI jest otwarte
+            if (!controls.isLocked) return; 
+            
+            event.preventDefault(); 
+
+            if (event.deltaY > 0) { 
+                currentSlot = (currentSlot + 1) % 9;
+            } else if (event.deltaY < 0) { 
+                currentSlot = (currentSlot - 1 + 9) % 9; 
+            }
+            updateHotbarVisuals();
+        }
+
+        function updateHotbarVisuals() {
+            // W trybie gry, hotbar jest na dole
+            if (controls.isLocked) {
+                document.body.appendChild(hotbarContainer);
+            } else if (isInventoryOpen) {
+                // W trybie ekwipunku, jest w ekwipunku
+                inventoryScreen.appendChild(hotbarContainer);
+            }
+            
+            hotbarSlots.forEach((slot, index) => {
+                const itemName = hotbarItems[index];
+                if (itemName) {
+                    const info = blockInfo[itemName];
+                    const textureUrl = (itemName === 'log') ? 'resources/textures/blocks/log_oak.png' : info.texture;
+                    slot.style.backgroundImage = `url(${textureUrl})`;
+                } else {
+                    slot.style.backgroundImage = 'none';
+                }
+                
+                // Zaznaczanie aktywnego slota
+                if (index === currentSlot) {
+                    slot.classList.add('selected');
+                } else {
+                    slot.classList.remove('selected');
+                }
+            });
+        }
+        
+        // --- Silnik Fizyki (bez zmian od v1.16) ---
+        const playerBox = new THREE.Box3();
+        const blockBox = new THREE.Box3();
+        const deltaPos = new THREE.Vector3();
+        const playerDirection = new THREE.Vector3();
+        
+        const forwardVec = new THREE.Vector3();
+        const rightVec = new THREE.Vector3();
+        const moveXVec = new THREE.Vector3();
+        const moveZVec = new THREE.Vector3();
+        const newPos = new THREE.Vector3();
+        
+        function updatePlayerBox(position) {
+            playerBox.setFromCenterAndSize(
+                position.clone().add(new THREE.Vector3(0, -PLAYER_HEIGHT / 2, 0)), 
+                new THREE.Vector3(PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_WIDTH)
+            );
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = performance.now();
+            const currentTime = time / 1000.0;
+            const delta = (time - prevTime) / 1000.0; 
+            const effectiveDelta = Math.min(delta, 0.05);
+
+            if (controls.isLocked) {
+                
+                // Zaktualizuj pozycję hotbara (gdy jest w grze)
+                if (hotbarContainer.parentNode !== document.body) {
+                    document.body.appendChild(hotbarContainer);
+                    updateHotbarVisuals(); // Zaktualizuj zaznaczenie
+                }
+
+                if (isBreakingHeld) { breakHoldTime += effectiveDelta; } 
+                else { breakHoldTime = 0; }
+                if (isPlacingHeld) { placeHoldTime += effectiveDelta; } 
+                else { placeHoldTime = 0; }
+
+                const breakAccel = Math.min(1, breakHoldTime / breakMaxAccelTime);
+                const placeAccel = Math.min(1, placeHoldTime / placeMaxAccelTime);
+                const adjustedBreakCooldown = Math.max(breakMinCooldown, breakCooldown * (1 - 0.75 * breakAccel));
+                const adjustedPlaceCooldown = Math.max(placeMinCooldown, placeCooldown * (1 - 0.75 * placeAccel));
+
+                if (isBreakingHeld && currentTime > nextBreakTime) {
+                    handleBreaking();
+                    nextBreakTime = currentTime + adjustedBreakCooldown;
+                }
+                if (isPlacingHeld && currentTime > nextPlaceTime) {
+                    handlePlacing();
+                    nextPlaceTime = currentTime + adjustedPlaceCooldown;
+                }
+
+                if (jumpRequested && isGrounded) {
+                    velocity.y = Math.sqrt(jumpHeight * 2 * gravity); 
+                    isGrounded = false; 
+                }
+
+                velocity.y -= gravity * effectiveDelta;
+                
+                playerDirection.z = Number(moveForward) - Number(moveBackward);
+                playerDirection.x = Number(moveRight) - Number(moveLeft);
+                
+                if (playerDirection.lengthSq() > 0) {
+                    playerDirection.normalize(); 
+                }
+
+                camera.getWorldDirection(forwardVec);
+                forwardVec.y = 0;
+                forwardVec.normalize();
+                
+                rightVec.crossVectors(forwardVec, camera.up).normalize(); 
+
+                moveZVec.copy(forwardVec).multiplyScalar(playerDirection.z * moveSpeed * effectiveDelta);
+                moveXVec.copy(rightVec).multiplyScalar(playerDirection.x * moveSpeed * effectiveDelta);
+                
+                deltaPos.copy(moveXVec.add(moveZVec));
+                deltaPos.y = velocity.y * effectiveDelta;
+                
+                const currentPos = controls.getObject().position;
+                newPos.copy(currentPos);
+
+                // OŚ Y (Wertykalna)
+                newPos.y += deltaPos.y;
+                updatePlayerBox(newPos);
+                
+                let newIsGrounded = false;
+                
+                if (newPos.y - PLAYER_HEIGHT < 0) { 
+                    newPos.y = PLAYER_HEIGHT + 0.001; 
+                    velocity.y = 0;
+                    newIsGrounded = true; 
+                }
+
+                for(const obj of objects) {
+                    if (obj.name === "VOXEL_BLOCK") {
+                        blockBox.setFromObject(obj);
+                        if (playerBox.intersectsBox(blockBox)) {
+                            if (deltaPos.y < 0) { 
+                                newPos.y = blockBox.max.y + PLAYER_HEIGHT + 0.001; 
+                                velocity.y = 0;
+                                newIsGrounded = true; 
+                            } else if (deltaPos.y > 0) { 
+                                newPos.y = blockBox.min.y - PLAYER_HEIGHT - 0.001;
+                                velocity.y = 0;
+                            }
+                        }
+                    }
+                }
+                
+                isGrounded = newIsGrounded;
+                currentPos.y = newPos.y; 
+
+                // OŚ X (Horyzontalna)
+                newPos.x += deltaPos.x;
+                updatePlayerBox(newPos); 
+
+                for(const obj of objects) {
+                    if (obj.name === "VOXEL_BLOCK") {
+                        blockBox.setFromObject(obj);
+                        if (playerBox.intersectsBox(blockBox)) {
+                            if (deltaPos.x > 0) { newPos.x = blockBox.min.x - PLAYER_WIDTH / 2 - 0.001; }
+                            else if (deltaPos.x < 0) { newPos.x = blockBox.max.x + PLAYER_WIDTH / 2 + 0.001; }
+                        }
+                    }
+                }
+                currentPos.x = newPos.x; 
+
+                // OŚ Z (Horyzontalna)
+                newPos.z += deltaPos.z;
+                updatePlayerBox(newPos); 
+
+                for(const obj of objects) {
+                    if (obj.name === "VOXEL_BLOCK") {
+                        blockBox.setFromObject(obj);
+                        if (playerBox.intersectsBox(blockBox)) {
+                            if (deltaPos.z > 0) { newPos.z = blockBox.min.z - PLAYER_WIDTH / 2 - 0.001; }
+                            else if (deltaPos.z < 0) { newPos.z = blockBox.max.z + PLAYER_WIDTH / 2 + 0.001; }
+                        }
+                    }
+                }
+                currentPos.z = newPos.z; 
+
+            } else if (isInventoryOpen) {
+                // Zaktualizuj pozycję hotbara (gdy jest w UI)
+                if (hotbarContainer.parentNode !== inventoryScreen) {
+                    inventoryScreen.appendChild(hotbarContainer);
+                    updateHotbarVisuals(); // Zaktualizuj zaznaczenie
+                }
+            }
+
+            prevTime = time;
+            renderer.render(scene, camera);
+        }
+        
+    </script>
+</body>
+</html>
