@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- POPRAWKA v1.20: Zmiana tytułu -->
-    <title>MINEML (v1.20 - Creative UI)</title>
+    <title>MINEML (v1.29 - Pro Movement)</title>
     <style>
         body, html {
             margin: 0;
@@ -13,14 +12,12 @@
             font-family: 'Inter', sans-serif;
             background-color: #111;
             color: white;
-            /* POPRAWKA v1.20: Domyślny kursor, gdy UI jest otwarte */
             cursor: default; 
             user-select: none;
         }
         canvas {
             display: block;
         }
-        /* Nakładka blokująca - do kliknięcia "Start" */
         #blocker {
             position: absolute;
             width: 100%;
@@ -42,23 +39,20 @@
             border-radius: 8px;
             box-sizing: border-box; 
         }
-        /* Celownik */
         #crosshair {
             position: absolute;
             top: 50%;
             left: 50%;
             width: 20px;
             height: 20px;
-            margin-left: -11px; /* Połowa szerokości + border */
-            margin-top: -11px; /* Połowa wysokości + border */
+            margin-left: -11px; 
+            margin-top: -11px;
             font-size: 20px;
             font-weight: bold;
             color: rgba(255, 255, 255, 0.8);
-            pointer-events: none; /* Pozwala klikać "przez" */
-            display: none; /* Domyślnie ukryty */
+            pointer-events: none; 
+            display: none; 
         }
-
-        /* --- Style dla Hotbara --- */
         #hotbar {
             position: absolute;
             bottom: 20px;
@@ -69,7 +63,7 @@
             background: rgba(0, 0, 0, 0.3);
             padding: 4px;
             border-radius: 4px;
-            pointer-events: none; /* Domyślnie brak interakcji */
+            pointer-events: none; 
         }
         .slot {
             width: 50px;
@@ -78,18 +72,15 @@
             border: 2px solid #555;
             box-sizing: border-box; 
             
-            /* POPRAWKA v1.20: Używamy tekstur, nie emoji */
-            background-size: 32px; /* Pixelated look */
+            background-size: 32px; 
             background-repeat: no-repeat;
             background-position: center;
-            image-rendering: pixelated; /* Ważne dla piksel-artu */
+            image-rendering: pixelated; 
         }
         .slot.selected {
             border: 2px solid #FFF;
-            background-color: rgba(255, 255, 255, 0.3); /* Użyj tła zamiast skali */
+            background-color: rgba(255, 255, 255, 0.3); 
         }
-        
-        /* --- NOWOŚĆ v1.20: Ekran Ekwipunku --- */
         #inventory-screen {
             position: absolute;
             top: 0;
@@ -97,7 +88,7 @@
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.7);
-            display: none; /* Domyślnie ukryty */
+            display: none; 
             flex-direction: column;
             align-items: center;
             justify-content: center;
@@ -105,29 +96,26 @@
         }
         #creative-grid {
             display: grid;
-            grid-template-columns: repeat(6, 54px); /* 6 bloków */
+            grid-template-columns: repeat(7, 54px); 
             gap: 4px;
             background: rgba(0, 0, 0, 0.5);
             padding: 10px;
             border-radius: 8px;
         }
-        /* Gdy ekwipunek jest otwarty, hotbar staje się interaktywny */
         #inventory-screen #hotbar {
-            position: relative; /* Wróć do normalnego pozycjonowania */
+            position: relative; 
             bottom: auto;
             left: auto;
             transform: none;
-            pointer-events: auto; /* Pozwól na klikanie */
+            pointer-events: auto; 
         }
         #inventory-screen .slot {
-            cursor: pointer; /* Pokaż dłoń nad slotami */
+            cursor: pointer; 
             pointer-events: auto;
         }
         #inventory-screen .slot:hover {
             background-color: rgba(255, 255, 255, 0.2);
         }
-
-        /* --- NOWOŚĆ v1.20: "Przenoszony" item przy kursorze --- */
         #held-item {
             position: absolute;
             width: 32px;
@@ -135,12 +123,10 @@
             background-size: 32px;
             background-repeat: no-repeat;
             image-rendering: pixelated;
-            pointer-events: none; /* Ignoruj kliknięcia */
-            display: none; /* Ukryty domyślnie */
+            pointer-events: none; 
+            display: none; 
             z-index: 9999;
         }
-        
-        /* --- Style dla UI w grze --- */
         #version {
             position: absolute;
             bottom: 10px;
@@ -148,7 +134,7 @@
             font-size: 14px;
             color: rgba(255, 255, 255, 0.5);
             pointer-events: none;
-            display: none; /* Ukryte na starcie */
+            display: none; 
             user-select: none;
         }
         #controls-hint {
@@ -161,12 +147,12 @@
             padding: 5px 10px;
             border-radius: 4px;
             pointer-events: none;
-            display: none; /* Ukryte na starcie */
+            display: none; 
             user-select: none;
         }
         #controls-display {
             position: absolute;
-            top: 40px; /* Pod hintem */
+            top: 40px; 
             left: 10px;
             font-size: 14px;
             line-height: 1.6;
@@ -175,26 +161,33 @@
             padding: 10px;
             border-radius: 4px;
             pointer-events: none;
-            display: none; /* Domyślnie ukryte, przełączane klawiszorem H */
+            display: none; 
             user-select: none;
+        }
+        #fly-mode-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 16px;
+            color: #00ff00;
+            font-weight: bold;
+            display: none; 
+            pointer-events: none;
+            text-shadow: 1px 1px 2px black;
         }
     </style>
 </head>
 <body>
-    <!-- Nakładka, którą trzeba kliknąć, by włączyć Pointer Lock -->
     <div id="blocker">
         <div id="instructions">
-            <!-- POPRAWKA v1.20: Zmiana tytułu -->
-            <h1>MINEML(v1.20)</h1>
+            <h1>MINEML(v1.29)</h1>
             <p>Kliknij, aby rozpocząć</p>
             <p id="loading-message" style="font-size: 16px; color: #ccc;">Ładowanie tekstur...</p>
         </div>
     </div>
 
-    <!-- Celownik -->
     <div id="crosshair">+</div>
 
-    <!-- Hotbar (teraz pusty, wypełniany przez JS) -->
     <div id="hotbar">
         <div class="slot"></div>
         <div class="slot"></div>
@@ -207,31 +200,28 @@
         <div class="slot"></div>
     </div>
     
-    <!-- Elementy UI w grze (v1.10) -->
-    <div id="version">MINEML (v1.20)</div> <!-- POPRAWKA v1.20: Aktualizacja wersji -->
+    <div id="version">MINEML (v1.29)</div>
     <div id="controls-hint">Naciśnij [H] aby przełączyć pomoc</div>
-    <div id="controls-display" style="display: none;"> <!-- Domyślnie ukryte -->
+    <div id="fly-mode-indicator">TRYB LATANIA</div>
+    
+    <div id="controls-display" style="display: none;"> 
         <b>Chodzenie:</b> W, A, S, D<br>
-        <b>Skok:</b> SPACJA<br>
+        <b>Sprint:</b> SHIFT<br> 
+        <b>Skok / Góra:</b> SPACJA<br>
+        <b>Latanie:</b> Podwójna SPACJA<br>
+        <b>Dół (Latanie):</b> C<br> 
         <b>Niszcz:</b> LPM<br>
         <b>Buduj:</b> PPM<br>
         <b>Hotbar:</b> Kółko myszy<br>
-        <!-- POPRAWKA v1.20: Nowe sterowanie -->
         <b>Ekwipunek:</b> E<br>
         <b>Wyjście:</b> ESC
     </div>
 
-    <!-- NOWOŚĆ v1.20: Ekran Ekwipunku -->
     <div id="inventory-screen">
-        <div id="creative-grid">
-            <!-- Wypełniane dynamicznie przez JavaScript -->
-        </div>
-        <!-- Hotbar zostanie tu przeniesiony przez JS, gdy ekwipunek jest otwarty -->
+        <div id="creative-grid"></div>
     </div>
     
-    <!-- NOWOŚĆ v1.20: "Przenoszony" item -->
     <div id="held-item"></div>
-
 
     <!-- Import Map -->
     <script type="importmap">
@@ -248,11 +238,10 @@
         import * as THREE from 'three';
         import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
-        // --- Zmienne globalne ---
         let camera, scene, renderer, controls;
         let raycaster;
         
-        const objects = []; // Wszystkie bloki (i podłoże)
+        const objects = []; 
         const BLOCK_SIZE = 1;
 
         const blockGeometry = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
@@ -261,14 +250,15 @@
         const textureLoader = new THREE.TextureLoader(loadingManager);
         
         const texturePath = 'resources/textures/blocks/'; 
+        const itemsPath = 'resources/textures/items/';
         
         function loadTexture(fileName) {
             const texture = textureLoader.load(texturePath + fileName);
-            texture.magFilter = THREE.NearestFilter; // Zachowuje pikselowy wygląd
+            texture.magFilter = THREE.NearestFilter; 
             return texture;
         }
 
-        // --- Definicje tekstur ---
+        // --- Tekstury ---
         const dirtTexture = loadTexture('dirt.png');
         const stoneTexture = loadTexture('stone.png');
         const cobblestoneTexture = loadTexture('cobblestone.png');
@@ -278,7 +268,7 @@
         const logTopTexture = loadTexture('log_oak_top.png');
         const grassTopTexture = loadTexture('grass_block_top.png');
         
-        // --- Definicje materiałów ---
+        // --- Materiały ---
         const dirtMaterial = new THREE.MeshLambertMaterial({ map: dirtTexture });
         const stoneMaterial = new THREE.MeshLambertMaterial({ map: stoneTexture });
         const cobblestoneMaterial = new THREE.MeshLambertMaterial({ map: cobblestoneTexture });
@@ -297,38 +287,74 @@
             logSideMaterial, logSideMaterial, logTopMaterial,
             logTopMaterial, logSideMaterial, logSideMaterial
         ];
+
+        const grassTopMaterial = new THREE.MeshLambertMaterial({ map: grassTopTexture });
+        const grassBlockMaterialArray = [
+            dirtMaterial, dirtMaterial, grassTopMaterial,
+            dirtMaterial, dirtMaterial, dirtMaterial
+        ];
         
-        // --- NOWOŚĆ v1.20: Scentralizowana baza danych bloków ---
         const blockInfo = {
-            'dirt': { material: dirtMaterial, texture: 'resources/textures/blocks/dirt.png' },
-            'stone': { material: stoneMaterial, texture: 'resources/textures/blocks/stone.png' },
-            'cobblestone': { material: cobblestoneMaterial, texture: 'resources/textures/blocks/cobblestone.png' },
-            'planks': { material: planksMaterial, texture: 'resources/textures/blocks/planks_oak.png' },
-            'log': { material: logMaterialArray, texture: 'resources/textures/blocks/log_oak.png' },
-            'leaves': { material: leavesMaterial, texture: 'resources/textures/blocks/leaves_oak.png' }
+            'dirt': { material: dirtMaterial, texture: texturePath + 'dirt.png' },
+            'stone': { material: stoneMaterial, texture: texturePath + 'stone.png' },
+            'cobblestone': { material: cobblestoneMaterial, texture: texturePath + 'cobblestone.png' },
+            'planks': { material: planksMaterial, texture: texturePath + 'planks_oak.png' },
+            'log': { material: logMaterialArray, texture: texturePath + 'log_oak.png' },
+            'leaves': { material: leavesMaterial, texture: texturePath + 'leaves_oak.png' },
+            'grass': { material: grassBlockMaterialArray, texture: texturePath + 'grass_block_top.png' },
+            
+            'pickaxe': { material: null, texture: itemsPath + 'diamond_pickaxe.png' },
+            'sword': { material: null, texture: itemsPath + 'diamond_sword.png' },
+            'apple': { material: null, texture: itemsPath + 'apple.png' }
         };
-        const creativeItems = ['dirt', 'stone', 'cobblestone', 'planks', 'log', 'leaves'];
         
-        // Tablica slotMaterials jest teraz pusta i wypełniana przez gracza
+        const creativeItems = [
+            'pickaxe', 'sword', 'apple', 
+            'grass', 'dirt', 'stone', 'cobblestone', 'planks', 'log', 'leaves'
+        ];
+        
         let slotMaterials = new Array(9).fill(null);
+        let hotbarItems = [
+            'pickaxe', 'sword', 'grass', 'stone', 'planks', 'log', 'leaves', 'apple', null
+        ];
         
-        // NOWOŚĆ v1.20: Tablica śledząca co jest w hotbarze
-        let hotbarItems = new Array(9).fill(null); // np. [null, 'dirt', 'stone', null, ...]
-        let heldItem = null; // 'dirt', 'stone', itp.
+        let heldItem = null; 
         let isInventoryOpen = false;
 
 
-        // --- Zmienne fizyki i ruchu ---
+        // --- Zmienne fizyki (Ulepszone v1.29) ---
         const PLAYER_HEIGHT = 1.8 * BLOCK_SIZE;
-        const PLAYER_WIDTH = 0.8; 
+        const PLAYER_WIDTH = 0.6; // Zmniejszone z 0.8 dla lepszego przeciskania się
+        
+        // Input states
         let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
         let jumpRequested = false; 
-        let isGrounded = false; 
-        let velocity = new THREE.Vector3(); 
-        const moveSpeed = 4.0;
-        const gravity = 20.0; 
-        const jumpHeight = 1.2; 
+        let moveDown = false; 
+        let isSprinting = false; 
+        let isFlying = false;
+        let isGrounded = false;
+
+        // Physics State
+        const velocity = new THREE.Vector3(); // Prawdziwy wektor prędkości (momentum)
         
+        // Stałe fizyczne (Dostrojone do "MC Feel")
+        const GRAVITY = 32.0; // Mocna grawitacja (była 20)
+        const JUMP_FORCE = 9.5; // Impuls skoku (około 1.2 bloku)
+        
+        const WALK_SPEED = 4.3; // ~4.3 m/s w MC
+        const SPRINT_SPEED = 6; // ~5.6 m/s w MC
+        const FLY_SPEED = 10.9; // Creative fly speed
+
+        // Tarcie (Damping)
+        const GROUND_FRICTION = 10.0; // Szybkie zatrzymywanie na ziemi
+        const AIR_FRICTION = 1.0; // Małe tarcie w powietrzu (zachowanie pędu)
+        const FLY_FRICTION = 5.0; // Tarcie podczas latania
+
+        const ACCELERATION = 50.0; // Jak szybko nabieramy prędkości
+        
+        let lastSpaceTime = 0;
+        const DOUBLE_PRESS_DELAY = 300; 
+
         // --- Zmienne interakcji ---
         let isBreakingHeld = false, isPlacingHeld = false;
         const breakCooldown = 0.3, placeCooldown = 0.25; 
@@ -338,123 +364,113 @@
         const breakMinCooldown = 0.1, placeMinCooldown = 0.1; 
         let prevTime = performance.now(); 
 
-        // --- Zmienne Hotbara ---
-        let hotbarContainer; // Zmieniono nazwę z hotbarSlots na kontener
-        let hotbarSlots = []; // Tablica elementów DOM
-        let currentSlot = 0; // Slot 0-8
-        
-        // --- Elementy UI ---
-        const blocker = document.getElementById('blocker');
-        const crosshair = document.getElementById('crosshair');
-        let versionDisplay, controlsHint, controlsDisplay;
-        let controlsVisible = false; 
-        
-        // NOWOŚĆ v1.20: Nowe elementy UI
+        // --- UI ---
+        let hotbarContainer; 
+        let hotbarSlots = []; 
+        let currentSlot = 0; 
         let inventoryScreen, creativeGrid, heldItemVisual;
+        let versionDisplay, controlsHint, controlsDisplay, flyModeIndicator;
+        let controlsVisible = false; 
 
-
-        // Uruchomienie gry po załadowaniu tekstur
         loadingManager.onLoad = () => {
-            console.log("Wszystkie tekstury załadowane, uruchamiam grę.");
             const loadingMessage = document.getElementById('loading-message');
-            if (loadingMessage) {
-                loadingMessage.textContent = "Kliknij, aby rozpocząć";
-            }
+            if (loadingMessage) loadingMessage.textContent = "Kliknij, aby rozpocząć";
             init();
             animate();
         };
         
         loadingManager.onError = (url) => {
-            console.error('Wystąpił błąd podczas ładowania:', url);
             const loadingMessage = document.getElementById('loading-message');
             if (loadingMessage) {
-                loadingMessage.textContent = "Błąd ładowania tekstur! Sprawdź ścieżki i nazwy plików.";
-                loadingMessage.style.color = "red";
+                loadingMessage.textContent = "Kliknij, aby rozpocząć (Brakujące tekstury będą czarne)";
+                loadingMessage.style.color = "yellow";
             }
         };
 
-
         function init() {
-            // 1. Scena
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB);
 
-            // 2. Renderer
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
             document.body.appendChild(renderer.domElement);
 
-            // 3. Kamera (nasz gracz)
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.y = PLAYER_HEIGHT; 
+            camera.position.set(0, 5, 0); 
 
-            // 4. Kontrolery (Pointer Lock)
             controls = new PointerLockControls(camera, document.body);
             scene.add(controls.getObject()); 
 
             controls.addEventListener('lock', () => {
-                // Gdy wchodzimy do gry
                 blocker.style.display = 'none';
                 crosshair.style.display = 'block';
                 versionDisplay.style.display = 'block';
                 controlsHint.style.display = 'block';
-                
-                // POPRAWKA v1.20: Upewnij się, że UI jest schowane
+                if (isFlying) flyModeIndicator.style.display = 'block';
                 inventoryScreen.style.display = 'none';
                 document.body.style.cursor = 'none';
             });
             
             controls.addEventListener('unlock', () => {
-                // Gdy wychodzimy z gry (ESC lub E)
                 document.body.style.cursor = 'default';
-                
                 if (isInventoryOpen) {
-                    // Jeśli wychodzimy przez 'E', pokaż ekwipunek
                     blocker.style.display = 'none';
                     inventoryScreen.style.display = 'flex';
                 } else {
-                    // Jeśli wychodzimy przez 'ESC', pokaż menu startowe
                     blocker.style.display = 'flex';
                     inventoryScreen.style.display = 'none';
                 }
-                
-                // Zawsze ukrywaj UI gry, gdy nie jest zablokowane
                 crosshair.style.display = 'none';
                 versionDisplay.style.display = 'none';
                 controlsHint.style.display = 'none';
                 controlsDisplay.style.display = 'none'; 
+                flyModeIndicator.style.display = 'none';
                 controlsVisible = false; 
+                
+                // Reset inputów
+                moveForward = moveBackward = moveLeft = moveRight = false;
+                isBreakingHeld = isPlacingHeld = false;
+                isSprinting = false;
+                jumpRequested = false;
+                moveDown = false;
             });
             
             blocker.addEventListener('click', () => {
                 controls.lock();
             });
 
-            // 5. Światła
             const ambientLight = new THREE.AmbientLight(0x606060);
             scene.add(ambientLight);
             const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
             directionalLight.position.set(1, 0.75, 0.5).normalize();
             scene.add(directionalLight);
 
-            // 6. Podłoże
-            const planeGeometry = new THREE.PlaneGeometry(50, 50);
-            planeGeometry.rotateX(-Math.PI / 2);
-            grassTopTexture.wrapS = THREE.RepeatWrapping;
-            grassTopTexture.wrapT = THREE.RepeatWrapping;
-            grassTopTexture.repeat.set(50, 50);
-            const planeMaterial = new THREE.MeshLambertMaterial({ map: grassTopTexture });
-            const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-            plane.name = "GROUND";
-            scene.add(plane);
-            objects.push(plane);
+            const worldSize = 32; 
+            const startX = -worldSize / 2;
+            const startZ = -worldSize / 2;
+            const groundDepth = 5; 
+
+            for (let x = 0; x < worldSize; x++) {
+                for (let z = 0; z < worldSize; z++) {
+                     for (let y = 0; y > -groundDepth; y--) {
+                         let material;
+                         if (y === 0) material = grassBlockMaterialArray; 
+                         else material = dirtMaterial; 
+
+                         const block = new THREE.Mesh(blockGeometry, material);
+                         // POPRAWKA v1.25: Przesunięcie o 0.5, by siatka pasowała
+                         block.position.set(startX + x + 0.5, y - 0.5, startZ + z + 0.5);
+                         block.name = "VOXEL_BLOCK"; 
+                         scene.add(block);
+                         objects.push(block);
+                     }
+                }
+            }
             
-            // 7. Raycaster
             raycaster = new THREE.Raycaster();
             raycaster.far = 10; 
 
-            // 8. Nasłuchiwanie zdarzeń
             document.addEventListener('keydown', onKeyDown);
             document.addEventListener('keyup', onKeyUp);
             document.addEventListener('pointerdown', onPointerDown); 
@@ -463,49 +479,47 @@
             document.addEventListener('contextmenu', (event) => event.preventDefault());
             window.addEventListener('wheel', onWheelScroll);
             
-            // --- NOWOŚĆ v1.20: Inicjalizacja Ekwipunku ---
             hotbarContainer = document.getElementById('hotbar');
             hotbarSlots = Array.from(hotbarContainer.querySelectorAll('.slot'));
             inventoryScreen = document.getElementById('inventory-screen');
             creativeGrid = document.getElementById('creative-grid');
             heldItemVisual = document.getElementById('held-item');
+            versionDisplay = document.getElementById('version');
+            controlsHint = document.getElementById('controls-hint');
+            controlsDisplay = document.getElementById('controls-display');
+            flyModeIndicator = document.getElementById('fly-mode-indicator');
 
-            // Przenieś hotbar do ekranu ekwipunku (będzie widoczny tylko tam)
             inventoryScreen.appendChild(hotbarContainer);
             
-            // Wypełnij siatkę kreatywną
             for (const itemName of creativeItems) {
                 const info = blockInfo[itemName];
                 const slot = document.createElement('div');
-                slot.className = 'slot creative-slot';
-                // Użyj pierwszej tekstury z boku dla pnia
-                const textureUrl = (itemName === 'log') ? 'resources/textures/blocks/log_oak.png' : info.texture;
+                slot.className = 'slot'; 
+                slot.style.cursor = 'pointer';
+                const textureUrl = info.texture;
                 slot.style.backgroundImage = `url(${textureUrl})`;
-                
                 slot.addEventListener('click', () => onCreativeItemClick(itemName));
                 creativeGrid.appendChild(slot);
             }
             
-            // Dodaj listenery do slotów hotbara
+            for (let i = 0; i < 9; i++) {
+                const itemName = hotbarItems[i];
+                if (itemName) {
+                    slotMaterials[i] = blockInfo[itemName].material;
+                }
+            }
+
             hotbarSlots.forEach((slot, index) => {
                 slot.addEventListener('click', () => onHotbarSlotClick(index));
             });
             
-            // Listener do przesuwania "trzymanego" itemu
             window.addEventListener('mousemove', (event) => {
                 if (isInventoryOpen && heldItem) {
                     heldItemVisual.style.transform = `translate(${event.clientX}px, ${event.clientY}px)`;
                 }
             });
-            // --- Koniec inicjalizacji Ekwipunku ---
             
-
-            // 9. Inicjalizacja reszty UI
-            versionDisplay = document.getElementById('version');
-            controlsHint = document.getElementById('controls-hint');
-            controlsDisplay = document.getElementById('controls-display');
-            
-            updateHotbarVisuals(); // Zaktualizuj na start (pokaż 'selected' na slocie 0)
+            updateHotbarVisuals(); 
         }
 
         function onWindowResize() {
@@ -514,28 +528,21 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
         
-        // --- NOWOŚĆ v1.20: Funkcje Ekwipunku ---
-        
         function openInventory() {
             isInventoryOpen = true;
-            controls.unlock(); // To wywoła listener 'unlock'
+            controls.unlock(); 
         }
         
         function closeInventory() {
             isInventoryOpen = false;
-            heldItem = null; // Zawsze upuść item przy zamykaniu
+            heldItem = null; 
             updateHeldItemVisual();
-            controls.lock(); // To wywoła listener 'lock'
+            controls.lock(); 
         }
         
         function onCreativeItemClick(itemName) {
-            if (heldItem) {
-                // Jeśli już coś trzymasz, odłóż to (anuluj)
-                heldItem = null;
-            } else {
-                // Podnieś nowy item
-                heldItem = itemName;
-            }
+            if (heldItem) heldItem = null;
+            else heldItem = itemName;
             updateHeldItemVisual();
         }
         
@@ -543,19 +550,14 @@
             const itemInSlot = hotbarItems[index];
             
             if (heldItem) {
-                // Kładziemy item DO slotu
                 hotbarItems[index] = heldItem;
                 slotMaterials[index] = blockInfo[heldItem].material;
-                
-                heldItem = itemInSlot; // Podnieś to, co było w slocie (może być null)
+                heldItem = itemInSlot; 
             } else if (itemInSlot) {
-                // Podnosimy item ZE slotu
                 hotbarItems[index] = null;
                 slotMaterials[index] = null;
-                
                 heldItem = itemInSlot;
             }
-            
             updateHotbarVisuals();
             updateHeldItemVisual();
         }
@@ -563,7 +565,7 @@
         function updateHeldItemVisual() {
             if (heldItem) {
                 const info = blockInfo[heldItem];
-                const textureUrl = (heldItem === 'log') ? 'resources/textures/blocks/log_oak.png' : info.texture;
+                const textureUrl = info.texture;
                 heldItemVisual.style.backgroundImage = `url(${textureUrl})`;
                 heldItemVisual.style.display = 'block';
             } else {
@@ -571,12 +573,7 @@
             }
         }
         
-        // --- Koniec funkcji Ekwipunku ---
-
-
         function onKeyDown(event) {
-            
-            // (v1.10) Przełączanie pomocy
             if (event.code === 'KeyH') {
                 if (controls.isLocked) { 
                     controlsVisible = !controlsVisible;
@@ -586,74 +583,56 @@
                 return; 
             }
             
-            // --- NOWOŚĆ v1.20: Otwieranie/Zamykanie Ekwipunku ---
             if (event.code === 'KeyE') {
                 event.preventDefault();
-                if (isInventoryOpen) {
-                    closeInventory();
-                } else if (controls.isLocked) {
-                    openInventory();
-                }
+                if (isInventoryOpen) closeInventory();
+                else if (controls.isLocked) openInventory();
                 return;
             }
             
-            // Nie ruszaj się, gdy ekwipunek jest otwarty
             if (!controls.isLocked) return;
 
             switch (event.code) {
-                case 'ArrowUp':
-                case 'KeyW':
-                    moveForward = true;
-                    break;
-                case 'ArrowLeft':
-                case 'KeyA':
-                    moveLeft = true;
-                    break;
-                case 'ArrowDown':
-                case 'KeyS':
-                    moveBackward = true;
-                    break;
-                case 'ArrowRight':
-                case 'KeyD':
-                    moveRight = true;
-                    break;
+                case 'ArrowUp': case 'KeyW': moveForward = true; break;
+                case 'ArrowLeft': case 'KeyA': moveLeft = true; break;
+                case 'ArrowDown': case 'KeyS': moveBackward = true; break;
+                case 'ArrowRight': case 'KeyD': moveRight = true; break;
+                
                 case 'Space':
-                    jumpRequested = true;
+                    if (!event.repeat) { 
+                        const currentTime = performance.now();
+                        if (currentTime - lastSpaceTime < DOUBLE_PRESS_DELAY) {
+                            isFlying = !isFlying;
+                            velocity.y = 0; // Zresetuj pęd pionowy przy przełączeniu
+                            flyModeIndicator.style.display = isFlying ? 'block' : 'none';
+                            lastSpaceTime = 0; 
+                        } else {
+                            lastSpaceTime = currentTime;
+                        }
+                    }
+                    jumpRequested = true; 
                     break;
+                    
+                case 'ShiftLeft': case 'ShiftRight': isSprinting = true; break;
+                case 'KeyC': moveDown = true; break;
             }
         }
 
         function onKeyUp(event) {
             switch (event.code) {
-                case 'ArrowUp':
-                case 'KeyW':
-                    moveForward = false;
-                    break;
-                case 'ArrowLeft':
-                case 'KeyA':
-                    moveLeft = false;
-                    break;
-                case 'ArrowDown':
-                case 'KeyS':
-                    moveBackward = false;
-                    break;
-                case 'ArrowRight':
-                case 'KeyD':
-                    moveRight = false;
-                    break;
-                case 'Space':
-                    jumpRequested = false;
-                    break;
+                case 'ArrowUp': case 'KeyW': moveForward = false; break;
+                case 'ArrowLeft': case 'KeyA': moveLeft = false; break;
+                case 'ArrowDown': case 'KeyS': moveBackward = false; break;
+                case 'ArrowRight': case 'KeyD': moveRight = false; break;
+                case 'Space': jumpRequested = false; break;
+                case 'ShiftLeft': case 'ShiftRight': isSprinting = false; break;
+                case 'KeyC': moveDown = false; break;
             }
         }
 
         function onPointerUp(event) {
-            if (event.button === 0) { 
-                isBreakingHeld = false;
-            }
-            else if (event.button === 2) { 
-                isPlacingHeld = false;
-            }
+            if (event.button === 0) isBreakingHeld = false;
+            else if (event.button === 2) isPlacingHeld = false;
         }
         
         function handleBreaking() {
@@ -662,7 +641,7 @@
 
             if (intersects.length > 0) {
                 const intersect = intersects[0];
-                if (intersect.object.name !== "GROUND") {
+                if (intersect.object.name === "VOXEL_BLOCK") {
                     scene.remove(intersect.object);
                     objects.splice(objects.indexOf(intersect.object), 1);
                 }
@@ -670,11 +649,8 @@
         }
 
         function handlePlacing() {
-            // Pobierz aktualnie wybrany materiał z logiki hotbara
             const selectedMaterial = slotMaterials[currentSlot];
-            if (!selectedMaterial) {
-                return; // Wybrany pusty slot lub item (gdy dodamy)
-            }
+            if (!selectedMaterial) return; 
             
             raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
             const intersects = raycaster.intersectObjects(objects, false);
@@ -687,10 +663,6 @@
                 newBlock.position.copy(intersect.point).add(intersect.face.normal.clone().multiplyScalar(0.5));
                 newBlock.position.divideScalar(BLOCK_SIZE).floor().multiplyScalar(BLOCK_SIZE).addScalar(BLOCK_SIZE / 2);
                 
-                if (newBlock.position.y < BLOCK_SIZE / 2) {
-                    newBlock.position.y = BLOCK_SIZE / 2;
-                }
-
                 updatePlayerBox(controls.getObject().position);
                 const newBlockBox = new THREE.Box3();
                 newBlockBox.setFromCenterAndSize(
@@ -708,43 +680,28 @@
         }
         
         function onPointerDown(event) {
-            // Blokuj budowanie/niszczenie gdy UI jest otwarte
             if (!controls.isLocked) {
-                // Ale pozwól na klikanie w UI
-                if (event.target.id === 'blocker') {
-                    controls.lock();
-                }
+                if (event.target.id === 'blocker') controls.lock();
                 return;
             }
-
-            if (event.button === 0) { 
-                isBreakingHeld = true;
-            }
-            else if (event.button === 2) { 
-                isPlacingHeld = true;
-            }
+            if (event.button === 0) isBreakingHeld = true;
+            else if (event.button === 2) isPlacingHeld = true;
         }
 
         function onWheelScroll(event) {
-            // Blokuj scrollowanie hotbara gdy UI jest otwarte
             if (!controls.isLocked) return; 
-            
             event.preventDefault(); 
 
-            if (event.deltaY > 0) { 
-                currentSlot = (currentSlot + 1) % 9;
-            } else if (event.deltaY < 0) { 
-                currentSlot = (currentSlot - 1 + 9) % 9; 
-            }
+            if (event.deltaY > 0) currentSlot = (currentSlot + 1) % 9;
+            else if (event.deltaY < 0) currentSlot = (currentSlot - 1 + 9) % 9; 
+            
             updateHotbarVisuals();
         }
 
         function updateHotbarVisuals() {
-            // W trybie gry, hotbar jest na dole
             if (controls.isLocked) {
                 document.body.appendChild(hotbarContainer);
             } else if (isInventoryOpen) {
-                // W trybie ekwipunku, jest w ekwipunku
                 inventoryScreen.appendChild(hotbarContainer);
             }
             
@@ -752,32 +709,26 @@
                 const itemName = hotbarItems[index];
                 if (itemName) {
                     const info = blockInfo[itemName];
-                    const textureUrl = (itemName === 'log') ? 'resources/textures/blocks/log_oak.png' : info.texture;
+                    const textureUrl = info.texture;
                     slot.style.backgroundImage = `url(${textureUrl})`;
                 } else {
                     slot.style.backgroundImage = 'none';
                 }
                 
-                // Zaznaczanie aktywnego slota
-                if (index === currentSlot) {
-                    slot.classList.add('selected');
-                } else {
-                    slot.classList.remove('selected');
-                }
+                if (index === currentSlot) slot.classList.add('selected');
+                else slot.classList.remove('selected');
             });
         }
         
-        // --- Silnik Fizyki (bez zmian od v1.16) ---
+        // --- Nowy System Fizyki (Wektory i Pęd) ---
         const playerBox = new THREE.Box3();
         const blockBox = new THREE.Box3();
-        const deltaPos = new THREE.Vector3();
-        const playerDirection = new THREE.Vector3();
         
-        const forwardVec = new THREE.Vector3();
-        const rightVec = new THREE.Vector3();
-        const moveXVec = new THREE.Vector3();
-        const moveZVec = new THREE.Vector3();
-        const newPos = new THREE.Vector3();
+        // Wektory pomocnicze (zadeklarowane raz, by nie śmiecić w RAMie)
+        const directionVector = new THREE.Vector3();
+        const forwardVector = new THREE.Vector3();
+        const rightVector = new THREE.Vector3();
+        const nextPosition = new THREE.Vector3();
         
         function updatePlayerBox(position) {
             playerBox.setFromCenterAndSize(
@@ -796,12 +747,12 @@
 
             if (controls.isLocked) {
                 
-                // Zaktualizuj pozycję hotbara (gdy jest w grze)
                 if (hotbarContainer.parentNode !== document.body) {
                     document.body.appendChild(hotbarContainer);
-                    updateHotbarVisuals(); // Zaktualizuj zaznaczenie
+                    updateHotbarVisuals(); 
                 }
 
+                // Logika niszczenia/budowania (bez zmian)
                 if (isBreakingHeld) { breakHoldTime += effectiveDelta; } 
                 else { breakHoldTime = 0; }
                 if (isPlacingHeld) { placeHoldTime += effectiveDelta; } 
@@ -821,101 +772,161 @@
                     nextPlaceTime = currentTime + adjustedPlaceCooldown;
                 }
 
-                if (jumpRequested && isGrounded) {
-                    velocity.y = Math.sqrt(jumpHeight * 2 * gravity); 
-                    isGrounded = false; 
+                // --- NOWA FIZYKA RUCHU (v1.29) ---
+
+                // 1. Oblicz kierunek z Inputu (WASD)
+                directionVector.z = Number(moveForward) - Number(moveBackward);
+                directionVector.x = Number(moveRight) - Number(moveLeft);
+                directionVector.normalize();
+
+                // Przekształć kierunek lokalny na światowy (względem kamery)
+                camera.getWorldDirection(forwardVector);
+                forwardVector.y = 0;
+                forwardVector.normalize();
+                rightVector.crossVectors(forwardVector, camera.up).normalize();
+
+                // Oblicz wektor *chęci* ruchu (Wish Direction)
+                const wishDir = new THREE.Vector3();
+                wishDir.add(forwardVector.multiplyScalar(directionVector.z));
+                wishDir.add(rightVector.multiplyScalar(directionVector.x));
+                wishDir.normalize();
+
+                // 2. Ustal parametry w zależności od stanu (Lot / Ziemia / Powietrze)
+                let currentMaxSpeed = isSprinting ? SPRINT_SPEED : WALK_SPEED;
+                let friction = isGrounded ? GROUND_FRICTION : AIR_FRICTION;
+                
+                if (isFlying) {
+                    currentMaxSpeed = isSprinting ? FLY_SPEED * 2 : FLY_SPEED;
+                    friction = FLY_FRICTION;
+                    isGrounded = false; // W locie nie jesteśmy uziemieni
                 }
 
-                velocity.y -= gravity * effectiveDelta;
-                
-                playerDirection.z = Number(moveForward) - Number(moveBackward);
-                playerDirection.x = Number(moveRight) - Number(moveLeft);
-                
-                if (playerDirection.lengthSq() > 0) {
-                    playerDirection.normalize(); 
+                // 3. Aplikuj Tarcie (Damping) - Zwalnianie
+                // Zwalniamy tylko w osiach X/Z (Y jest dla grawitacji, chyba że latamy)
+                velocity.x -= velocity.x * friction * effectiveDelta;
+                velocity.z -= velocity.z * friction * effectiveDelta;
+                if (isFlying) {
+                    velocity.y -= velocity.y * friction * effectiveDelta;
                 }
 
-                camera.getWorldDirection(forwardVec);
-                forwardVec.y = 0;
-                forwardVec.normalize();
+                // 4. Aplikuj Akcelerację (Input)
+                // Dodajemy prędkość w kierunku ruchu
+                if (directionVector.lengthSq() > 0) {
+                    velocity.x += wishDir.x * ACCELERATION * effectiveDelta;
+                    velocity.z += wishDir.z * ACCELERATION * effectiveDelta;
+                }
                 
-                rightVec.crossVectors(forwardVec, camera.up).normalize(); 
+                // 5. Ogranicz prędkość poziomą (Clamping)
+                // Aby gracz nie rozpędzał się w nieskończoność
+                const horizontalSpeed = Math.sqrt(velocity.x**2 + velocity.z**2);
+                if (horizontalSpeed > currentMaxSpeed) {
+                    // Skaluj w dół do max speed
+                    const scale = currentMaxSpeed / horizontalSpeed;
+                    velocity.x *= scale;
+                    velocity.z *= scale;
+                }
 
-                moveZVec.copy(forwardVec).multiplyScalar(playerDirection.z * moveSpeed * effectiveDelta);
-                moveXVec.copy(rightVec).multiplyScalar(playerDirection.x * moveSpeed * effectiveDelta);
-                
-                deltaPos.copy(moveXVec.add(moveZVec));
-                deltaPos.y = velocity.y * effectiveDelta;
-                
+                // 6. Fizyka Wertykalna (Grawitacja / Skok / Lot)
+                if (isFlying) {
+                    if (jumpRequested) velocity.y += ACCELERATION * effectiveDelta;
+                    if (moveDown) velocity.y -= ACCELERATION * effectiveDelta;
+                } else {
+                    // Grawitacja
+                    velocity.y -= GRAVITY * effectiveDelta;
+                    
+                    // Skok (Impuls)
+                    if (jumpRequested && isGrounded) {
+                        velocity.y = JUMP_FORCE;
+                        isGrounded = false;
+                    }
+                }
+
+                // 7. Rozwiązywanie Kolizji i Aktualizacja Pozycji
+                // Oblicz, gdzie chcemy być
                 const currentPos = controls.getObject().position;
-                newPos.copy(currentPos);
-
-                // OŚ Y (Wertykalna)
-                newPos.y += deltaPos.y;
-                updatePlayerBox(newPos);
+                nextPosition.copy(currentPos);
                 
-                let newIsGrounded = false;
+                // --- OŚ Y ---
+                const deltaY = velocity.y * effectiveDelta;
+                nextPosition.y += deltaY;
+                updatePlayerBox(nextPosition);
                 
-                if (newPos.y - PLAYER_HEIGHT < 0) { 
-                    newPos.y = PLAYER_HEIGHT + 0.001; 
-                    velocity.y = 0;
-                    newIsGrounded = true; 
-                }
-
+                let collisionY = false;
+                // Sprawdzamy bloki w pobliżu
                 for(const obj of objects) {
                     if (obj.name === "VOXEL_BLOCK") {
+                        // Szybki test dystansu
+                        if (Math.abs(obj.position.x - currentPos.x) > 2 || 
+                            Math.abs(obj.position.z - currentPos.z) > 2 ||
+                            Math.abs(obj.position.y - currentPos.y) > 3) continue;
+
                         blockBox.setFromObject(obj);
                         if (playerBox.intersectsBox(blockBox)) {
-                            if (deltaPos.y < 0) { 
-                                newPos.y = blockBox.max.y + PLAYER_HEIGHT + 0.001; 
+                            // Kolizja wykryta
+                            if (velocity.y < 0) { 
+                                // Spadamy na blok
+                                nextPosition.y = blockBox.max.y + PLAYER_HEIGHT + 0.001; 
                                 velocity.y = 0;
-                                newIsGrounded = true; 
-                            } else if (deltaPos.y > 0) { 
-                                newPos.y = blockBox.min.y - PLAYER_HEIGHT - 0.001;
+                                isGrounded = true;
+                                collisionY = true;
+                            } else if (velocity.y > 0) { 
+                                // Uderzamy głową
+                                nextPosition.y = blockBox.min.y - 0.001;
                                 velocity.y = 0;
+                                collisionY = true;
                             }
                         }
                     }
                 }
+                if (!collisionY && !isFlying) isGrounded = false; // Spadamy
+                currentPos.y = nextPosition.y;
+
+                // --- OŚ X ---
+                const deltaX = velocity.x * effectiveDelta;
+                nextPosition.x += deltaX;
+                updatePlayerBox(nextPosition);
                 
-                isGrounded = newIsGrounded;
-                currentPos.y = newPos.y; 
-
-                // OŚ X (Horyzontalna)
-                newPos.x += deltaPos.x;
-                updatePlayerBox(newPos); 
-
                 for(const obj of objects) {
                     if (obj.name === "VOXEL_BLOCK") {
+                        if (Math.abs(obj.position.x - currentPos.x) > 2 || 
+                            Math.abs(obj.position.z - currentPos.z) > 2 ||
+                            Math.abs(obj.position.y - currentPos.y) > 3) continue;
+
                         blockBox.setFromObject(obj);
                         if (playerBox.intersectsBox(blockBox)) {
-                            if (deltaPos.x > 0) { newPos.x = blockBox.min.x - PLAYER_WIDTH / 2 - 0.001; }
-                            else if (deltaPos.x < 0) { newPos.x = blockBox.max.x + PLAYER_WIDTH / 2 + 0.001; }
+                            // Zatrzymaj ruch tylko w tej osi
+                            velocity.x = 0;
+                            // Cofnij ruch
+                            nextPosition.x -= deltaX; 
                         }
                     }
                 }
-                currentPos.x = newPos.x; 
+                currentPos.x = nextPosition.x;
 
-                // OŚ Z (Horyzontalna)
-                newPos.z += deltaPos.z;
-                updatePlayerBox(newPos); 
-
+                // --- OŚ Z ---
+                const deltaZ = velocity.z * effectiveDelta;
+                nextPosition.z += deltaZ;
+                updatePlayerBox(nextPosition);
+                
                 for(const obj of objects) {
                     if (obj.name === "VOXEL_BLOCK") {
+                        if (Math.abs(obj.position.x - currentPos.x) > 2 || 
+                            Math.abs(obj.position.z - currentPos.z) > 2 ||
+                            Math.abs(obj.position.y - currentPos.y) > 3) continue;
+
                         blockBox.setFromObject(obj);
                         if (playerBox.intersectsBox(blockBox)) {
-                            if (deltaPos.z > 0) { newPos.z = blockBox.min.z - PLAYER_WIDTH / 2 - 0.001; }
-                            else if (deltaPos.z < 0) { newPos.z = blockBox.max.z + PLAYER_WIDTH / 2 + 0.001; }
+                            velocity.z = 0;
+                            nextPosition.z -= deltaZ;
                         }
                     }
                 }
-                currentPos.z = newPos.z; 
+                currentPos.z = nextPosition.z;
 
             } else if (isInventoryOpen) {
-                // Zaktualizuj pozycję hotbara (gdy jest w UI)
                 if (hotbarContainer.parentNode !== inventoryScreen) {
                     inventoryScreen.appendChild(hotbarContainer);
-                    updateHotbarVisuals(); // Zaktualizuj zaznaczenie
+                    updateHotbarVisuals(); 
                 }
             }
 
@@ -925,5 +936,4 @@
         
     </script>
 </body>
-
 </html>
